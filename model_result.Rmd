@@ -1,0 +1,145 @@
+---
+title: "random_forest_stream_T"
+author: "Tao"
+date:  "`r Sys.Date()`"
+output: html_document
+---
+
+# load the packages
+```{r, echo=FALSE, results='hide'}
+#install.packages("tidyverse")
+library("tidyverse")
+#library(dataRetrieval)
+# install.packages("zoo") 
+library(zoo)
+library(raster)
+library("maptools")
+library(baseflow)
+#library("EcoHydRology")
+library("foreign")
+# install.packages("moments") 
+library("moments")
+library("EnvStats")
+library("rnoaa")
+# install.packages("gradDescent") 
+library("gradDescent")
+#install.packages("pracma"
+library("pracma")
+#install.packages("nls2")
+library("nls2")
+require("randomForest")
+```
+
+#load the data
+```{r}
+#the mean Aug stream temp at the USGS sites
+#load("meanAugT_df.Rdata")
+#the the PRISM air temperature data
+#load("temp_all.Rdata")
+# merged air and stream T
+load("meanAugT_all.Rdata")
+```
+
+# calculate monthly temp
+```{r}
+colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "ele"         ,     "Monthly_air_T"  )
+
+meanAugT_all_mo<-meanAugT_all %>%
+  group_by(site_no  ,yr) %>%
+  summarise(monthly_stream_T = mean(Daily_Stream_T), monthly_stream_Q = mean(Daily_Q),ele= mean(ele), monthly_air_T=mean(Monthly_air_T) )
+
+head(meanAugT_all_mo)
+```
+
+# split the data into ref and non-ref streams
+```{r}
+#g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
+g<-read.dbf("gagesII_9322_sept30_2011.dbf")
+
+g$STAID<-as.character(g$STAID)
+meanAugT_all_mo2<-merge(g,meanAugT_all_mo,by.x="STAID",by.y="site_no")
+meanAugT_all_mo3<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Ref",]
+meanAugT_all_mo4<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Non-ref",]
+```
+
+#plot monthly air T vs. stream T
+```{r}
+plot(meanAugT_all_mo$monthly_air_T, meanAugT_all_mo$monthly_stream_T)
+plot(meanAugT_all_mo3$monthly_air_T,meanAugT_all_mo3$monthly_stream_T)
+```
+
+# Generate training and test data
+```{r}
+# I splitted dataset into training and test data. The test data will be 30% of the entire dataset.
+set.seed(101)
+train = sample(1:nrow(meanAugT_all_mo),  nrow(meanAugT_all_mo)*0.7 )
+dim(meanAugT_all_mo)
+length(train)
+
+set.seed(101)
+train2 = sample(1:nrow(meanAugT_all_mo2),  nrow(meanAugT_all_mo2)*0.7 )
+dim(meanAugT_all_mo2)
+length(train2)
+
+set.seed(101)
+train3 = sample(1:nrow(meanAugT_all_mo3),  nrow(meanAugT_all_mo3)*0.7 )
+dim(meanAugT_all_mo3)
+length(train3)
+
+set.seed(101)
+train4 = sample(1:nrow(meanAugT_all_mo4),  nrow(meanAugT_all_mo4)*0.7 )
+dim(meanAugT_all_mo4)
+length(train4)
+
+```
+
+#run the random forest models
+```{r}
+rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+rf.stream_T
+rf.stream_T$importance
+randomForest::varImpPlot(rf.stream_T, importance=TRUE)
+
+rf.stream_T2 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T +CLASS , data = meanAugT_all_mo2, subset = train2)
+rf.stream_T2
+rf.stream_T2$importance
+
+rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo3, subset = train3)
+rf.stream_T3
+rf.stream_T3$importance
+
+rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo4, subset = train4)
+rf.stream_T4
+rf.stream_T4$importance
+```
+
+# Make prediction of the all model 
+```{r}
+
+predictions <- predict(rf.stream_T, meanAugT_all_mo[-train,] )
+
+x=seq(1,30)
+
+plot(meanAugT_all_mo[-train,]$monthly_stream_T,predictions,xlim=c(8,22) ,ylim=c(8,22), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
+par(new=T)
+plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
+```
+
+# Make prediction of the ref model 
+```{r}
+predictions3 <- predict(rf.stream_T3, meanAugT_all_mo3[-train3,] )
+
+plot(meanAugT_all_mo3[-train3,]$monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
+
+par(new=T)
+plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
+```
+
+# Make prediction of the non-ref model 
+```{r}
+predictions4 <- predict(rf.stream_T4, meanAugT_all_mo4[-train4,] )
+
+plot(meanAugT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(16,22) ,ylim=c(16,22) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
+par(new=T)
+plot(x,x,type="l" ,xlim=c(16,22) ,ylim=c(16,22) ,xlab="",ylab="")
+```
