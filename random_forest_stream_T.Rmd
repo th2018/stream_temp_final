@@ -1,0 +1,226 @@
+---
+title: "random_forest_stream_T"
+author: "Tao"
+date:  "`r Sys.Date()`"
+output: html_document
+---
+
+# load the packages
+```{r}
+#install.packages("tidyverse")
+library("tidyverse")
+# install.packages("dataRetrieval")
+library(dataRetrieval)
+# install.packages("zoo") 
+library(zoo)
+library(raster)
+library("maptools")
+library(baseflow)
+#library("EcoHydRology")
+library("foreign")
+# install.packages("moments") 
+library("moments")
+library("EnvStats")
+library("rnoaa")
+# install.packages("gradDescent") 
+library("gradDescent")
+#install.packages("pracma"
+library("pracma")
+#install.packages("nls2")
+library("nls2")
+require("randomForest")
+```
+
+```{r}
+load("meanAugT_df.Rdata")
+```
+
+```{r}
+# read data
+usgs<-read.csv("wt_ID.csv")
+#usgs<-read.dbf("wt_ID.dbf") #DRAIN_SQKM
+
+usgs<-usgs[usgs$site_no<1e+08,]
+usgs$site_no<-as.character(usgs$site_no)
+
+meanAugT_df<-data.frame(agency_cd= " ",site_no="", Date=as.Date("2000-01-01",format="%Y-%m-%d"),X_00010_00003=0,    X_00010_00003_cd= "",X_00060_00003=0,    X_00060_00003_cd= "",yr="",mo=0 , ele=0)
+
+#for (id in usgs) {
+ for (id in usgs$site_no ) {
+  siteNumber <- as.character(id) 
+  parameterCd <- c("00010","00060") #00060: Discharge, cubic feet per second
+ ChoptankInfo <- readNWISsite(siteNumber)
+ #ChoptankInfo$alt_va : Gage datum feet above NGVD29
+  statCd <- c("00003") # 00003	MEAN
+  startDate <- "2012-06-01"
+endDate <- "2021-09-01"
+meanT <-   readNWISdv(siteNumber, parameterCd, 
+                                 startDate, endDate, statCd=statCd)
+  if (dim(meanT )[2]>5){
+meanT$yr<- format(meanT$Date, format = "%Y") 
+meanT$mo<-as.numeric(format(meanT$Date, format = "%m"))
+meanAugT<-meanT[meanT$mo==8,c("agency_cd","site_no","Date","X_00010_00003","X_00010_00003_cd","X_00060_00003","X_00060_00003_cd","yr","mo"  )]
+meanAugT$ele<-ChoptankInfo$alt_va
+meanAugT_df <-rbind(meanAugT_df,meanAugT)
+print(Sys.time())
+}
+}
+
+# clean the data
+meanAugT_df<-meanAugT_df[-1,]
+meanAugT_df<-meanAugT_df[!meanAugT_df$site_no=="13185000" ,]
+
+save(meanAugT_df,file="C:/Users/taohuang/Downloads/ICL-main/meanQT_12_21.Rdata")
+
+```
+
+```{r}
+load("temp_all.Rdata")
+```
+
+# get the PRISM data
+```{r}
+setwd("C:/Users/taohuang/Documents/Tao/Data/PRISM")
+temp_all<-data.frame(STAID<-c("00"),yr<-c(0),RASTERVALU<-0)
+colnames(temp_all)<-c("STAID","yr","RASTERVALU")
+for (yr in c(2012:2020)) {
+  temp<-read.dbf(paste("temp",yr,".dbf",sep=""))
+  temp$yr<-yr
+    temp<-temp[,c("STAID","yr","RASTERVALU")]
+    temp_all<-rbind(temp_all,temp)
+}
+temp_all<-temp_all[-1,]
+head(temp_all)
+save(temp_all, file="C:/Users/taohuang/Downloads/ICL-main/temp_all.Rdata")
+```
+
+```{r}
+load("meanAugT_all.Rdata")
+```
+
+
+```{r}
+meanAugT_all<-merge(meanAugT_df,temp_all,by.x=c("site_no","yr"),by.y=c("STAID","yr"))
+meanAugT_all<-meanAugT_all[!is.na(meanAugT_all$X_00010_00003),]
+summary(meanAugT_all)
+head(meanAugT_all)
+save(meanAugT_all,file="C:/Users/taohuang/Downloads/ICL-main/meanAugT_all.Rdata")
+```
+
+#monthly air temp
+```{r}
+colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "ele"         ,     "Monthly_air_T"  )
+
+meanAugT_all_mo<-meanAugT_all %>%
+  group_by(site_no  ,yr) %>%
+  summarise(monthly_stream_T = mean(Daily_Stream_T), monthly_stream_Q = mean(Daily_Q),ele= mean(ele), monthly_air_T=mean(Monthly_air_T) )
+
+head(meanAugT_all_mo)
+```
+
+```{r}
+#g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
+g<-read.dbf("/Users/owner/Downloads/gagesII_9322_point_shapefile 2/gagesII_9322_sept30_2011.dbf")
+
+g$STAID<-as.character(g$STAID)
+meanAugT_all_mo2<-merge(g,meanAugT_all_mo,by.x="STAID",by.y="site_no")
+meanAugT_all_mo2
+meanAugT_all_mo3<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Ref",]
+meanAugT_all_mo4<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Non-ref",]
+dim(meanAugT_all_mo3)
+```
+
+
+```{r}
+plot(meanAugT_all_mo$monthly_air_T, meanAugT_all_mo$monthly_stream_T)
+plot(meanAugT_all_mo3$monthly_air_T,meanAugT_all_mo3$monthly_stream_T)
+```
+
+```{r}
+summary(lm(meanAugT_all_mo$monthly_stream_T~ meanAugT_all_mo$monthly_stream_Q +meanAugT_all_mo$monthly_air_T+ meanAugT_all_mo$ele))
+
+summary(lm(meanAugT_all_mo3$monthly_stream_T~ meanAugT_all_mo3$monthly_stream_Q +meanAugT_all_mo3$monthly_air_T+ meanAugT_all_mo3$ele))
+```
+
+
+```{r}
+set.seed(101)
+train = sample(1:nrow(meanAugT_all_mo),  nrow(meanAugT_all_mo)*0.7 )
+dim(meanAugT_all_mo)
+length(train)
+
+set.seed(101)
+train2 = sample(1:nrow(meanAugT_all_mo2),  nrow(meanAugT_all_mo2)*0.7 )
+dim(meanAugT_all_mo2)
+length(train2)
+
+set.seed(101)
+train3 = sample(1:nrow(meanAugT_all_mo3),  nrow(meanAugT_all_mo3)*0.7 )
+dim(meanAugT_all_mo3)
+length(train3)
+
+
+set.seed(101)
+train4 = sample(1:nrow(meanAugT_all_mo4),  nrow(meanAugT_all_mo4)*0.7 )
+dim(meanAugT_all_mo4)
+length(train4)
+
+```
+
+```{r}
+rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+rf.stream_T
+rf.stream_T$importance
+randomForest::varImpPlot(rf.stream_T, importance=TRUE)
+
+rf.stream_T2 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T +CLASS , data = meanAugT_all_mo2, subset = train2)
+rf.stream_T2
+rf.stream_T2$importance
+
+rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo3, subset = train3)
+rf.stream_T3
+rf.stream_T3$importance
+
+rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo4, subset = train4)
+rf.stream_T4
+rf.stream_T4$importance
+```
+
+```{r}
+# Make prediction
+predictions <- predict(rf.stream_T, meanAugT_all_mo[-train,] )
+
+x=seq(1,30)
+
+plot(meanAugT_all_mo[-train,]$monthly_stream_T,predictions,xlim=c(8,22) ,ylim=c(8,22), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
+par(new=T)
+plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
+```
+
+```{r}
+predictions2 <- predict(rf.stream_T2, meanAugT_all_mo2[-train2,] )
+
+plot(meanAugT_all_mo2[-train2,]$monthly_stream_T,predictions2 ,xlim=c(8,22) ,ylim=c(8,22))
+```
+
+
+```{r}
+predictions3 <- predict(rf.stream_T3, meanAugT_all_mo3[-train3,] )
+
+plot(meanAugT_all_mo3[-train3,]$monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
+
+par(new=T)
+plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
+```
+
+
+```{r}
+predictions4 <- predict(rf.stream_T4, meanAugT_all_mo4[-train4,] )
+
+plot(meanAugT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(16,22) ,ylim=c(16,22) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
+par(new=T)
+plot(x,x,type="l" ,xlim=c(16,22) ,ylim=c(16,22) ,xlab="",ylab="")
+```
+
+
+
