@@ -6,7 +6,7 @@ output: html_document
 ---
 
 # load the packages
-```{r}
+```{r, echo=FALSE, results='hide'}
 #install.packages("tidyverse")
 library("tidyverse")
 # install.packages("dataRetrieval")
@@ -32,9 +32,15 @@ require("randomForest")
 ```
 
 ```{r}
-load("meanAugT_df.Rdata")
+#the mean Aug stream temp at the USGS sites
+#load("meanAugT_df.Rdata")
+#the the PRISM air temperature data
+#load("temp_all.Rdata")
+# merged air and stream T
+load("meanAugT_all")
 ```
 
+#get the mean Aug stream temp at the USGS sites
 ```{r}
 # read data
 usgs<-read.csv("wt_ID.csv")
@@ -74,11 +80,7 @@ save(meanAugT_df,file="C:/Users/taohuang/Downloads/ICL-main/meanQT_12_21.Rdata")
 
 ```
 
-```{r}
-load("temp_all.Rdata")
-```
-
-# get the PRISM data
+# get the PRISM air temperature data
 ```{r}
 setwd("C:/Users/taohuang/Documents/Tao/Data/PRISM")
 temp_all<-data.frame(STAID<-c("00"),yr<-c(0),RASTERVALU<-0)
@@ -94,11 +96,7 @@ head(temp_all)
 save(temp_all, file="C:/Users/taohuang/Downloads/ICL-main/temp_all.Rdata")
 ```
 
-```{r}
-load("meanAugT_all.Rdata")
-```
-
-
+# merge stream temperature site and air temperature to get the air temp
 ```{r}
 meanAugT_all<-merge(meanAugT_df,temp_all,by.x=c("site_no","yr"),by.y=c("STAID","yr"))
 meanAugT_all<-meanAugT_all[!is.na(meanAugT_all$X_00010_00003),]
@@ -107,7 +105,7 @@ head(meanAugT_all)
 save(meanAugT_all,file="C:/Users/taohuang/Downloads/ICL-main/meanAugT_all.Rdata")
 ```
 
-#monthly air temp
+#monthly temp
 ```{r}
 colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "ele"         ,     "Monthly_air_T"  )
 
@@ -118,32 +116,26 @@ meanAugT_all_mo<-meanAugT_all %>%
 head(meanAugT_all_mo)
 ```
 
+# split the data into ref and non-ref streams
 ```{r}
 #g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
 g<-read.dbf("/Users/owner/Downloads/gagesII_9322_point_shapefile 2/gagesII_9322_sept30_2011.dbf")
 
 g$STAID<-as.character(g$STAID)
 meanAugT_all_mo2<-merge(g,meanAugT_all_mo,by.x="STAID",by.y="site_no")
-meanAugT_all_mo2
 meanAugT_all_mo3<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Ref",]
 meanAugT_all_mo4<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Non-ref",]
-dim(meanAugT_all_mo3)
 ```
 
-
+#plot monthly air T vs. stream T
 ```{r}
 plot(meanAugT_all_mo$monthly_air_T, meanAugT_all_mo$monthly_stream_T)
 plot(meanAugT_all_mo3$monthly_air_T,meanAugT_all_mo3$monthly_stream_T)
 ```
 
+# Generate training and test data
 ```{r}
-summary(lm(meanAugT_all_mo$monthly_stream_T~ meanAugT_all_mo$monthly_stream_Q +meanAugT_all_mo$monthly_air_T+ meanAugT_all_mo$ele))
-
-summary(lm(meanAugT_all_mo3$monthly_stream_T~ meanAugT_all_mo3$monthly_stream_Q +meanAugT_all_mo3$monthly_air_T+ meanAugT_all_mo3$ele))
-```
-
-
-```{r}
+# I splitted dataset into training and test data. The test data will be 30% of the entire dataset.
 set.seed(101)
 train = sample(1:nrow(meanAugT_all_mo),  nrow(meanAugT_all_mo)*0.7 )
 dim(meanAugT_all_mo)
@@ -159,7 +151,6 @@ train3 = sample(1:nrow(meanAugT_all_mo3),  nrow(meanAugT_all_mo3)*0.7 )
 dim(meanAugT_all_mo3)
 length(train3)
 
-
 set.seed(101)
 train4 = sample(1:nrow(meanAugT_all_mo4),  nrow(meanAugT_all_mo4)*0.7 )
 dim(meanAugT_all_mo4)
@@ -167,6 +158,7 @@ length(train4)
 
 ```
 
+#run the random forest models
 ```{r}
 rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
 rf.stream_T
@@ -186,8 +178,9 @@ rf.stream_T4
 rf.stream_T4$importance
 ```
 
+# Make prediction of the all model 
 ```{r}
-# Make prediction
+
 predictions <- predict(rf.stream_T, meanAugT_all_mo[-train,] )
 
 x=seq(1,30)
@@ -197,13 +190,7 @@ par(new=T)
 plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
 ```
 
-```{r}
-predictions2 <- predict(rf.stream_T2, meanAugT_all_mo2[-train2,] )
-
-plot(meanAugT_all_mo2[-train2,]$monthly_stream_T,predictions2 ,xlim=c(8,22) ,ylim=c(8,22))
-```
-
-
+# Make prediction of the ref model 
 ```{r}
 predictions3 <- predict(rf.stream_T3, meanAugT_all_mo3[-train3,] )
 
@@ -213,7 +200,7 @@ par(new=T)
 plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
 ```
 
-
+# Make prediction of the non-ref model 
 ```{r}
 predictions4 <- predict(rf.stream_T4, meanAugT_all_mo4[-train4,] )
 
@@ -221,6 +208,3 @@ plot(meanAugT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(16,22) ,yl
 par(new=T)
 plot(x,x,type="l" ,xlim=c(16,22) ,ylim=c(16,22) ,xlab="",ylab="")
 ```
-
-
-
