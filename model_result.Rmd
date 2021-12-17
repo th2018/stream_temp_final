@@ -1,8 +1,10 @@
 ---
 title: "random_forest_stream_T"
 author: "Tao"
-date:  "`r Sys.Date()`"
-output: html_document
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 # load the packages
@@ -107,10 +109,12 @@ rf.stream_T2$importance
 rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo3, subset = train3)
 rf.stream_T3
 rf.stream_T3$importance
+randomForest::varImpPlot(rf.stream_T3, importance=TRUE)
 
 rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo4, subset = train4)
 rf.stream_T4
 rf.stream_T4$importance
+randomForest::varImpPlot(rf.stream_T4, importance=TRUE)
 ```
 
 # Make prediction of the all model 
