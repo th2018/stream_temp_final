@@ -85,17 +85,25 @@ save(meanJAT_df,file="meanQJAT_11_21.Rdata")
 # get the PRISM air temperature data
 ```{r}
 setwd("C:/Users/taohuang/Documents/Tao/Data/PRISM")
-temp_all<-data.frame(STAID<-c("00"),yr<-c(0),RASTERVALU<-0)
-colnames(temp_all)<-c("STAID","yr","RASTERVALU")
+temp_all<-data.frame(STAID<-c("00"),yr<-c(0),RASTERVALU<-0, mo<-0)
+colnames(temp_all)<-c("STAID","yr","RASTERVALU","mo")
 for (yr in c(2012:2020)) {
-  temp<-read.dbf(paste("temp",yr,".dbf",sep=""))
-  temp$yr<-yr
-    temp<-temp[,c("STAID","yr","RASTERVALU")]
-    temp_all<-rbind(temp_all,temp)
+  temp07<-read.dbf(paste("temp",yr,"07.dbf",sep=""))
+  temp07$yr<-yr
+  temp07$mo<-07
+  temp07<-temp07[,c("STAID","yr","RASTERVALU","mo")]
+  temp_all<-rbind(temp_all,temp07)
+  
+    temp08<-read.dbf(paste("temp",yr,"08.dbf",sep=""))
+  temp08$yr<-yr
+  temp08$mo<-08
+  temp08<-temp08[,c("STAID","yr","RASTERVALU","mo")]
+  temp_all<-rbind(temp_all,temp08)
+  
 }
 temp_all<-temp_all[-1,]
 head(temp_all)
-save(temp_all, file="C:/Users/taohuang/Downloads/ICL-main/temp_all.Rdata")
+save(temp_all, file="C:/Users/taohuang/Downloads/stream_temp_final-main/temp_all0708.Rdata")
 ```
 
 # get the PRISM air temperature data
@@ -110,103 +118,105 @@ get_prism_monthlys(type = "tmean", year = 2010:2020, mon = c(7,8), keepZip = FAL
 
 # merge stream temperature site and air temperature to get the air temp
 ```{r}
-meanAugT_all<-merge(meanAugT_df,temp_all,by.x=c("site_no","yr"),by.y=c("STAID","yr"))
-meanAugT_all<-meanAugT_all[!is.na(meanAugT_all$X_00010_00003),]
-summary(meanAugT_all)
-head(meanAugT_all)
-save(meanAugT_all,file="C:/Users/taohuang/Downloads/ICL-main/meanAugT_all.Rdata")
+meanJAT_all<-merge(meanJAT_df,temp_all,by.x=c("site_no","yr","mo"),by.y=c("STAID","yr","mo"))
+meanJAT_all<-meanJAT_all[!is.na(meanJAT_all$X_00010_00003),]
+summary(meanJAT_all)
+head(meanJAT_all)
+save(meanJAT_all,file="C:/Users/taohuang/Downloads/stream_temp_final-main/meanJAT_all.Rdata")
 ```
 
 #monthly temp
 ```{r}
-colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "ele"         ,     "Monthly_air_T"  )
+colnames(meanJAT_all)<-c(colnames(meanJAT_all)[1:5],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd"   ,             "ele"         ,     "Monthly_air_T"  )
 
-meanAugT_all_mo<-meanAugT_all %>%
+meanJAT_all_mo<-meanJAT_all %>%
   group_by(site_no  ,yr) %>%
   summarise(monthly_stream_T = mean(Daily_Stream_T), monthly_stream_Q = mean(Daily_Q),ele= mean(ele), monthly_air_T=mean(Monthly_air_T) )
 
-head(meanAugT_all_mo)
+head(meanJAT_all_mo)
 ```
 
 # split the data into ref and non-ref streams
 ```{r}
-#g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
-g<-read.dbf("/Users/owner/Downloads/gagesII_9322_point_shapefile 2/gagesII_9322_sept30_2011.dbf")
+g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
+#g<-read.dbf("/Users/owner/Downloads/gagesII_9322_point_shapefile 2/gagesII_9322_sept30_2011.dbf")
 
 g$STAID<-as.character(g$STAID)
-meanAugT_all_mo2<-merge(g,meanAugT_all_mo,by.x="STAID",by.y="site_no")
-meanAugT_all_mo3<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Ref",]
-meanAugT_all_mo4<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Non-ref",]
+meanJAT_all_mo2<-merge(g,meanJAT_all_mo,by.x="STAID",by.y="site_no")
+meanJAT_all_mo3<-meanJAT_all_mo2[meanJAT_all_mo2$CLASS=="Ref",]
+meanJAT_all_mo4<-meanJAT_all_mo2[meanJAT_all_mo2$CLASS=="Non-ref",]
 ```
 
 #plot monthly air T vs. stream T
 ```{r}
-plot(meanAugT_all_mo$monthly_air_T, meanAugT_all_mo$monthly_stream_T)
-plot(meanAugT_all_mo3$monthly_air_T,meanAugT_all_mo3$monthly_stream_T)
+plot(meanJAT_all_mo$monthly_air_T, meanJAT_all_mo$monthly_stream_T)
+plot(meanJAT_all_mo3$monthly_air_T,meanJAT_all_mo3$monthly_stream_T)
 ```
 
 # Generate training and test data
 ```{r}
 # I splitted dataset into training and test data. The test data will be 30% of the entire dataset.
 set.seed(101)
-train = sample(1:nrow(meanAugT_all_mo),  nrow(meanAugT_all_mo)*0.7 )
-dim(meanAugT_all_mo)
+train = sample(1:nrow(meanJAT_all_mo),  nrow(meanJAT_all_mo)*0.7 )
+dim(meanJAT_all_mo)
 length(train)
 
 set.seed(101)
-train2 = sample(1:nrow(meanAugT_all_mo2),  nrow(meanAugT_all_mo2)*0.7 )
-dim(meanAugT_all_mo2)
+train2 = sample(1:nrow(meanJAT_all_mo2),  nrow(meanJAT_all_mo2)*0.7 )
+dim(meanJAT_all_mo2)
 length(train2)
 
 set.seed(101)
-train3 = sample(1:nrow(meanAugT_all_mo3),  nrow(meanAugT_all_mo3)*0.7 )
-dim(meanAugT_all_mo3)
+train3 = sample(1:nrow(meanJAT_all_mo3),  nrow(meanJAT_all_mo3)*0.7 )
+dim(meanJAT_all_mo3)
 length(train3)
 
 set.seed(101)
-train4 = sample(1:nrow(meanAugT_all_mo4),  nrow(meanAugT_all_mo4)*0.7 )
-dim(meanAugT_all_mo4)
+train4 = sample(1:nrow(meanJAT_all_mo4),  nrow(meanJAT_all_mo4)*0.7 )
+dim(meanJAT_all_mo4)
 length(train4)
 
 ```
 
 #run the random forest models
 ```{r}
-rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanJAT_all_mo, subset = train)
 rf.stream_T
 rf.stream_T$importance
 randomForest::varImpPlot(rf.stream_T, importance=TRUE)
 
-rf.stream_T2 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T +CLASS , data = meanAugT_all_mo2, subset = train2)
+rf.stream_T2 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T +CLASS , data = meanJAT_all_mo2, subset = train2)
 rf.stream_T2
 rf.stream_T2$importance
 
-rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo3, subset = train3)
+rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanJAT_all_mo3, subset = train3)
 rf.stream_T3
 rf.stream_T3$importance
+randomForest::varImpPlot(rf.stream_T3, importance=TRUE)
 
-rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo4, subset = train4)
+rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanJAT_all_mo4, subset = train4)
 rf.stream_T4
 rf.stream_T4$importance
+randomForest::varImpPlot(rf.stream_T4, importance=TRUE)
 ```
 
 # Make prediction of the all model 
 ```{r}
 
-predictions <- predict(rf.stream_T, meanAugT_all_mo[-train,] )
+predictions <- predict(rf.stream_T, meanJAT_all_mo[-train,] )
 
 x=seq(1,30)
 
-plot(meanAugT_all_mo[-train,]$monthly_stream_T,predictions,xlim=c(8,22) ,ylim=c(8,22), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
+plot(meanJAT_all_mo[-train,]$monthly_stream_T,predictions,xlim=c(8,25) ,ylim=c(8,25), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
 par(new=T)
-plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
+plot(x,x,type="l",xlim=c(8,25) ,ylim=c(8,25),xlab="",ylab="")
 ```
 
 # Make prediction of the ref model 
 ```{r}
-predictions3 <- predict(rf.stream_T3, meanAugT_all_mo3[-train3,] )
+predictions3 <- predict(rf.stream_T3, meanJAT_all_mo3[-train3,] )
 
-plot(meanAugT_all_mo3[-train3,]$monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
+plot(meanJAT_all_mo3[-train3,]$monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
 
 par(new=T)
 plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
@@ -214,9 +224,9 @@ plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
 
 # Make prediction of the non-ref model 
 ```{r}
-predictions4 <- predict(rf.stream_T4, meanAugT_all_mo4[-train4,] )
+predictions4 <- predict(rf.stream_T4, meanJAT_all_mo4[-train4,] )
 
-plot(meanAugT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(16,22) ,ylim=c(16,22) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
+plot(meanJAT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(10,23) ,ylim=c(10,23) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
 par(new=T)
-plot(x,x,type="l" ,xlim=c(16,22) ,ylim=c(16,22) ,xlab="",ylab="")
+plot(x,x,type="l" ,xlim=c(10,23) ,ylim=c(10,23) ,xlab="",ylab="")
 ```
