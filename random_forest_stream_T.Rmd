@@ -42,10 +42,11 @@ load("meanAugT_all")
 
 #get the mean Aug stream temp at the USGS sites
 ```{r}
-# read data
+# read the list of USGS stream temperature sites in Idaho
 usgs<-read.csv("wt_ID.csv")
 #usgs<-read.dbf("wt_ID.dbf") #DRAIN_SQKM
 
+#remove non-stream site
 usgs<-usgs[usgs$site_no<1e+08,]
 usgs$site_no<-as.character(usgs$site_no)
 
