@@ -7,6 +7,7 @@ output: html_document
 
 # load the packages
 ```{r, echo=FALSE, results='hide'}
+library(lubridate)
 library("foreign")
 #install.packages("tidyverse")
 library("tidyverse")
@@ -53,7 +54,18 @@ load("meanAugT_all.Rdata")
 ```
 
 ```{r}
+meanAugT_all_water_fire_2<-merge(meanAugT_all,water_fire_2,by.x =  "site_no",by.y =  "GAGE_ID")
+#meanAugT_all_water_fire_2$yr<- as.Date(  meanAugT_all_water_fire_2$yr, format = "%Y")
+#meanAugT_all_water_fire_2$y <- year(meanAugT_all_water_fire_2$yr)
+meanAugT_all_water_fire_2$fire<-"pre_fire"
+meanAugT_all_water_fire_2[meanAugT_all_water_fire_2$Date>=meanAugT_all_water_fire_2$Ig_Date,]$fire<-"post_fire"
+meanAugT_all_water_fire_2$day_since_fire<-meanAugT_all_water_fire_2$Date - meanAugT_all_water_fire_2$Ig_Date
+meanAugT_all_water_fire_2
 
+```
+
+```{r}
+save(meanAugT_all_water_fire_2,file="meanAugT_all_water_fire_2.Rdata")
 ```
 
 
