@@ -7,6 +7,7 @@ output: html_document
 
 # load the packages
 ```{r, echo=FALSE, results='hide'}
+library("foreign")
 #install.packages("tidyverse")
 library("tidyverse")
 # install.packages("dataRetrieval")
@@ -17,7 +18,7 @@ library(raster)
 library("maptools")
 library(baseflow)
 #library("EcoHydRology")
-library("foreign")
+
 # install.packages("moments") 
 library("moments")
 library("EnvStats")
@@ -31,14 +32,30 @@ library("nls2")
 require("randomForest")
 ```
 
+#clean the fire data
+```{r}
+water_fire<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/norwest/West_Mnts_mtbs.dbf")
+water_fire_2<-water_fire[,c("GAGE_ID","Incid_Name", "Ig_Date", "area_ratio")]
+water_fire_2$GAGE_ID<-as.character(water_fire_2$GAGE_ID)
+head(water_fire_2)
+
+```
+
+
 ```{r}
 #the mean Aug stream temp at the USGS sites
 #load("meanAugT_df.Rdata")
 #the the PRISM air temperature data
 #load("temp_all.Rdata")
 # merged air and stream T
-load("meanAugT_all")
+load("meanAugT_all.Rdata")
+#meanAugT_all
 ```
+
+```{r}
+
+```
+
 
 #get the mean Aug stream temp at the USGS sites
 ```{r}
