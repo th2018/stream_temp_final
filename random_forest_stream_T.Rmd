@@ -35,7 +35,7 @@ require("randomForest")
 
 ```{r}
 load("meanAugT_all_water_fire_2.Rdata")
-meanAugT_all_water_fire_2
+meanAugT_all_water_fire_2 #WHY A FIRE HAS MULTIPLE POLYGONS?
 ```
 
 
