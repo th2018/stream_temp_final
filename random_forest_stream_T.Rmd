@@ -7,7 +7,7 @@ output: html_document
 
 # load the packages
 ```{r, echo=FALSE, results='hide'}
-library(lubridate)
+library("lubridate")
 library("foreign")
 #install.packages("tidyverse")
 library("tidyverse")
@@ -33,6 +33,12 @@ library("nls2")
 require("randomForest")
 ```
 
+```{r}
+load("meanAugT_all_water_fire_2.Rdata")
+meanAugT_all_water_fire_2
+```
+
+
 #clean the fire data
 ```{r}
 water_fire<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/norwest/West_Mnts_mtbs.dbf")
@@ -54,7 +60,7 @@ load("meanAugT_all.Rdata")
 ```
 
 ```{r}
-meanAugT_all_water_fire_2<-merge(meanAugT_all,water_fire_2,by.x =  "site_no",by.y =  "GAGE_ID")
+#meanAugT_all_water_fire_2<-merge(meanAugT_all,water_fire_2,by.x =  "site_no",by.y =  "GAGE_ID")
 #meanAugT_all_water_fire_2$yr<- as.Date(  meanAugT_all_water_fire_2$yr, format = "%Y")
 #meanAugT_all_water_fire_2$y <- year(meanAugT_all_water_fire_2$yr)
 meanAugT_all_water_fire_2$fire<-"pre_fire"
@@ -62,10 +68,17 @@ meanAugT_all_water_fire_2[meanAugT_all_water_fire_2$Date>=meanAugT_all_water_fir
 meanAugT_all_water_fire_2$day_since_fire<-meanAugT_all_water_fire_2$Date - meanAugT_all_water_fire_2$Ig_Date
 meanAugT_all_water_fire_2
 
+meanAugT_all_mo<- meanAugT_all_water_fire_2 %>%
+  group_by(site_no  ,yr) %>%
+  summarise(monthly_stream_T = mean( X_00010_00003), monthly_stream_Q = mean(X_00060_00003),ele= mean(ele), monthly_air_T=mean(RASTERVALU) )
+
+head(meanAugT_all_mo)
+
 ```
 
 ```{r}
-save(meanAugT_all_water_fire_2,file="meanAugT_all_water_fire_2.Rdata")
+#save(meanAugT_all_water_fire_2,file="meanAugT_all_water_fire_2.Rdata")
+load("meanAugT_all_water_fire_2.Rdata")
 ```
 
 
@@ -190,7 +203,8 @@ length(train4)
 
 #run the random forest models
 ```{r}
-rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+#rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+rf.stream_T = randomForest( train$ ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
 rf.stream_T
 rf.stream_T$importance
 randomForest::varImpPlot(rf.stream_T, importance=TRUE)
