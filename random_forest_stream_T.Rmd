@@ -15,6 +15,7 @@ library("tidyverse")
 library(dataRetrieval)
 # install.packages("zoo") 
 library(zoo)
+#install.packages("raster")
 library(raster)
 library("maptools")
 library(baseflow)
@@ -36,6 +37,10 @@ require("randomForest")
 ```{r}
 load("meanAugT_all_water_fire_2.Rdata")
 meanAugT_all_water_fire_2 #WHY A FIRE HAS MULTIPLE POLYGONS?
+```
+
+```{r}
+summary(meanAugT_all_water_fire_2)
 ```
 
 
