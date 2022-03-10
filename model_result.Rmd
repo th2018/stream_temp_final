@@ -16,19 +16,20 @@ library("tidyverse")
 library(zoo)
 library(raster)
 library("maptools")
-library(baseflow)
+#library(baseflow)
 #library("EcoHydRology")
 library("foreign")
 # install.packages("moments") 
-library("moments")
-library("EnvStats")
-library("rnoaa")
+#library("moments")
+#library("EnvStats")
+#library("rnoaa")
 # install.packages("gradDescent") 
-library("gradDescent")
+#library("gradDescent")
 #install.packages("pracma"
-library("pracma")
+#library("pracma")
 #install.packages("nls2")
-library("nls2")
+#library("nls2")
+#install.packages("randomForest")
 require("randomForest")
 ```
 
@@ -44,11 +45,11 @@ load("meanAugT_all.Rdata")
 
 # calculate monthly temp
 ```{r}
-colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "ele"         ,     "Monthly_air_T"  )
+colnames(meanAugT_all)<-c(colnames(meanAugT_all)[1:4],"Daily_Stream_T","X_00010_00003_cd", "Daily_Q", "X_00060_00003_cd" ,"mo"  ,             "Elevation"         ,     "Monthly_air_T"  )
 
 meanAugT_all_mo<-meanAugT_all %>%
   group_by(site_no  ,yr) %>%
-  summarise(monthly_stream_T = mean(Daily_Stream_T), monthly_stream_Q = mean(Daily_Q),ele= mean(ele), monthly_air_T=mean(Monthly_air_T) )
+  summarise(Monthly_stream_T = mean(Daily_Stream_T), Monthly_stream_Q = mean(Daily_Q),Elevation= mean(Elevation), Monthly_air_T=mean(Monthly_air_T) )
 
 head(meanAugT_all_mo)
 ```
@@ -66,8 +67,8 @@ meanAugT_all_mo4<-meanAugT_all_mo2[meanAugT_all_mo2$CLASS=="Non-ref",]
 
 #plot monthly air T vs. stream T
 ```{r}
-plot(meanAugT_all_mo$monthly_air_T, meanAugT_all_mo$monthly_stream_T)
-plot(meanAugT_all_mo3$monthly_air_T,meanAugT_all_mo3$monthly_stream_T)
+plot(meanAugT_all_mo$Monthly_air_T, meanAugT_all_mo$Monthly_stream_T)
+plot(meanAugT_all_mo3$Monthly_air_T,meanAugT_all_mo3$Monthly_stream_T)
 ```
 
 # Generate training and test data
@@ -97,21 +98,21 @@ length(train4)
 
 #run the random forest models
 ```{r}
-rf.stream_T = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo, subset = train)
+rf.stream_T = randomForest(Monthly_stream_T ~ Elevation +Monthly_stream_Q   +Monthly_air_T , data = meanAugT_all_mo, subset = train)
 rf.stream_T
 rf.stream_T$importance
 randomForest::varImpPlot(rf.stream_T, importance=TRUE)
 
-rf.stream_T2 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T +CLASS , data = meanAugT_all_mo2, subset = train2)
+rf.stream_T2 = randomForest(Monthly_stream_T ~ Elevation +Monthly_stream_Q   +Monthly_air_T +CLASS , data = meanAugT_all_mo2, subset = train2)
 rf.stream_T2
 rf.stream_T2$importance
 
-rf.stream_T3 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo3, subset = train3)
+rf.stream_T3 = randomForest(Monthly_stream_T ~ Elevation +Monthly_stream_Q   +Monthly_air_T , data = meanAugT_all_mo3, subset = train3)
 rf.stream_T3
 rf.stream_T3$importance
 randomForest::varImpPlot(rf.stream_T3, importance=TRUE)
 
-rf.stream_T4 = randomForest(monthly_stream_T ~ ele +monthly_stream_Q   +monthly_air_T , data = meanAugT_all_mo4, subset = train4)
+rf.stream_T4 = randomForest(Monthly_stream_T ~ Elevation +Monthly_stream_Q   +Monthly_air_T , data = meanAugT_all_mo4, subset = train4)
 rf.stream_T4
 rf.stream_T4$importance
 randomForest::varImpPlot(rf.stream_T4, importance=TRUE)
@@ -124,7 +125,7 @@ predictions <- predict(rf.stream_T, meanAugT_all_mo[-train,] )
 
 x=seq(1,30)
 
-plot(meanAugT_all_mo[-train,]$monthly_stream_T,predictions,xlim=c(8,22) ,ylim=c(8,22), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
+plot(meanAugT_all_mo[-train,]$Monthly_stream_T,predictions,xlim=c(8,22) ,ylim=c(8,22), xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)")
 par(new=T)
 plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
 ```
@@ -133,7 +134,7 @@ plot(x,x,type="l",xlim=c(8,22) ,ylim=c(8,22),xlab="",ylab="")
 ```{r}
 predictions3 <- predict(rf.stream_T3, meanAugT_all_mo3[-train3,] )
 
-plot(meanAugT_all_mo3[-train3,]$monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
+plot(meanAugT_all_mo3[-train3,]$Monthly_stream_T,predictions3 ,xlim=c(16,26) ,ylim=c(16,26) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="Ref")
 
 par(new=T)
 plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
@@ -143,7 +144,7 @@ plot(x,x,type="l" ,xlim=c(16,26) ,ylim=c(16,26) ,xlab="",ylab="")
 ```{r}
 predictions4 <- predict(rf.stream_T4, meanAugT_all_mo4[-train4,] )
 
-plot(meanAugT_all_mo4[-train4,]$monthly_stream_T,predictions4 ,xlim=c(16,22) ,ylim=c(16,22) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
+plot(meanAugT_all_mo4[-train4,]$Monthly_stream_T,predictions4 ,xlim=c(16,22) ,ylim=c(16,22) , xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)" , main="No ref")
 par(new=T)
 plot(x,x,type="l" ,xlim=c(16,22) ,ylim=c(16,22) ,xlab="",ylab="")
 ```
