@@ -54,6 +54,11 @@ meanAugT_all_mo<-meanAugT_all %>%
 head(meanAugT_all_mo)
 ```
 
+```{r}
+plot(meanAugT_all$Monthly_air_T, meanAugT_all$Daily_Stream_T,)
+```
+
+
 # split the data into ref and non-ref streams
 ```{r}
 #g<-read.dbf("C:/Users/taohuang/Documents/Tao/Data/gagesII_9322_point_shapefile/gagesII_9322_sept30_2011.dbf")
